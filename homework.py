@@ -108,9 +108,9 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     start_message = 'Бот запущен. Начало отслеживания статуса ДЗ'
-    send_message(bot, start_message)
     logging.info(start_message)
-    prev_msg = ''
+    send_message(bot, start_message)
+    mesg = ''
 
     while True:
         try:
@@ -123,9 +123,9 @@ def main():
                 message = parse_status(homeworks[0])
             else:
                 message = 'Нет новых статусов'
-            if message != prev_msg:
+            if message != mesg:
                 send_message(bot, message)
-                prev_msg = message
+                mesg = message
             else:
                 logging.info(message)
 
@@ -136,9 +136,9 @@ def main():
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(message, exc_info=True)
-            if message != prev_msg:
+            if message != mesg:
                 send_message(bot, message)
-                prev_msg = message
+                mesg = message
 
         finally:
             time.sleep(RETRY_PERIOD)
