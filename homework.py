@@ -9,7 +9,7 @@ from http import HTTPStatus
 
 from exeption import (WrongResponseCode, TelegramSendingError, EmptyResponse,
                       NotForSend)
-                      
+
 from dotenv import load_dotenv
 
 
@@ -41,27 +41,25 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """Проверка переменных окружения"""
-
+    """Проверка переменных окружения."""
     logging.info('Проверка наличия всех токенов')
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
-    """Отправляет сообщение в Telegram чат"""
-
+    """Отправляет сообщение в Telegram чат."""
     try:
-        logging.info('Отправка статуса...')
+        logging.debug('Отправка статуса...')
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
     except telegram.error.TelegramError as error:
+        logging.error('Не удалось отправить сообщение')
         raise TelegramSendingError(f'Ошибка отправки статуса: {error}')
     else:
-        logging.info('Статус отправлен!')
+        logging.debug('Статус отправлен!')
 
 
 def get_api_answer(timestamp):
-    """Делаем запрос у API Практикум Домашки"""
-
+    """Делаем запрос у API Практикум Домашки."""
     payload = {'from_date': timestamp}
     try:
         response = requests.get(url=ENDPOINT, headers=HEADERS, params=payload)
@@ -73,7 +71,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверка  ответа API на соотвествие документации"""
+    """Проверка  ответа API на соотвествие документации."""
     logging.info('Проверка ответа от API')
     if not isinstance(response, dict):
         raise TypeError('Ответ API - не словарь')
@@ -81,14 +79,12 @@ def check_response(response):
         raise EmptyResponse('Нет ключа нужного ключа в ответе')
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        raise KeyError('homeworks не является список')
+        raise TypeError('homeworks не является список')
     return homeworks
 
 
 def parse_status(homework):
-    """Извлекает из информации о конкретной
-    домашней работе статус этой работы"""
-
+    """Извлекает из информации о конкретной домашней работе статус работы."""
     logging.info('Извлекаем статус работы')
     if 'homework_name' not in homework:
         raise KeyError('Нет нужного ключа в ответе')
@@ -104,7 +100,6 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-
     if not check_tokens():
         message = 'Ошибка в обнаружении Токена'
         logging.critical(message)
