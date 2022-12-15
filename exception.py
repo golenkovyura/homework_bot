@@ -4,11 +4,3 @@ class WrongResponseCode(Exception):
 
 class TelegramSendingError(Exception):
     pass
-
-
-class EmptyResponse(Exception):
-    pass
-
-
-class NotForSend(Exception):
-    pass

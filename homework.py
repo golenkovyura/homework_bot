@@ -1,27 +1,17 @@
 import os
+import sys
+import time
+
 import logging
 import requests
-import time
 import telegram
-import sys
-
 from http import HTTPStatus
-
-from exeption import (WrongResponseCode, TelegramSendingError, EmptyResponse,
-                      NotForSend)
-
 from dotenv import load_dotenv
+
+from exception import WrongResponseCode, TelegramSendingError
 
 
 load_dotenv()
-
-logging.basicConfig(
-    format='%(asctime)s %(name)s %(levelname)s  %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)],
-    level=logging.ERROR
-)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -42,18 +32,20 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка переменных окружения."""
-    logging.info('Проверка наличия всех токенов')
-    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
+    return all((
+        globals()['PRACTICUM_TOKEN'],
+        globals()['TELEGRAM_TOKEN'],
+        globals()['TELEGRAM_CHAT_ID'])
+    )
 
 
 def send_message(bot, message):
     """Отправляет сообщение в Telegram чат."""
     try:
-        logging.debug('Отправка статуса...')
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
     except telegram.error.TelegramError as error:
-        logging.error('Не удалось отправить сообщение')
-        raise TelegramSendingError(f'Ошибка отправки статуса: {error}')
+        logging.error(f'Ошибка отправки статуса: {error}')
+        raise TelegramSendingError()
     else:
         logging.debug('Статус отправлен!')
 
@@ -66,7 +58,7 @@ def get_api_answer(timestamp):
         if response.status_code != HTTPStatus.OK:
             raise WrongResponseCode('Ошибка в ответе API')
         return response.json()
-    except Exception:
+    except requests.exceptions.RequestException:
         raise WrongResponseCode('Сбой при запросе к эндпоинту API')
 
 
@@ -75,11 +67,13 @@ def check_response(response):
     logging.info('Проверка ответа от API')
     if not isinstance(response, dict):
         raise TypeError('Ответ API - не словарь')
-    if 'homeworks' not in response or 'current_date' not in response:
-        raise EmptyResponse('Нет ключа нужного ключа в ответе')
+    if 'homeworks' not in response:
+        raise KeyError('Нет ключа "homeworks" в ответе')
+    if 'current_date' not in response:
+        raise KeyError('Нет ключа "current_date" в ответе')
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        raise TypeError('homeworks не является список')
+        raise TypeError('homeworks не является списком')
     return homeworks
 
 
@@ -109,40 +103,36 @@ def main():
     timestamp = int(time.time())
     start_message = 'Бот запущен. Начало отслеживания статуса ДЗ'
     logging.info(start_message)
-    send_message(bot, start_message)
-    mesg = ''
 
     while True:
         try:
-            response = get_api_answer(timestamp)
-            timestamp = response.get(
-                'current_date', int(time.time())
-            )
-            homeworks = check_response(response)
-            if homeworks:
-                message = parse_status(homeworks[0])
-            else:
-                message = 'Нет новых статусов'
-            if message != mesg:
-                send_message(bot, message)
-                mesg = message
+            homeworks = get_api_answer(timestamp)
+            timestamp = homeworks.get('current_date')
+            homeworks_list = homeworks.get('homeworks')
+            if check_response(homeworks):
+                for homework in homeworks_list:
+                    message = parse_status(homework)
+                    send_message(bot, message)
             else:
                 logging.info(message)
-
-        except NotForSend as error:
-            message = f'Сбой в работе программы: {error}'
-            logging.error(message, exc_info=True)
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(message, exc_info=True)
-            if message != mesg:
-                send_message(bot, message)
-                mesg = message
+            send_message(bot, message)
 
         finally:
             time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        format='%(asctime)s, %(name)s, %(levelname)s'
+        '%(message)s, %(funcName)s, %(lineno)d',
+        handlers=[logging.StreamHandler(sys.stdout)],
+        level=logging.ERROR)
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
     main()
