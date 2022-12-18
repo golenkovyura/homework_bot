@@ -2,14 +2,13 @@ import os
 import sys
 import time
 import logging
+from http import HTTPStatus
 
 import requests
 import telegram
-
-from http import HTTPStatus
 from dotenv import load_dotenv
 
-from exception import WrongResponseCode
+from exception import WrongResponseCode, NotIsInstance
 
 
 load_dotenv()
@@ -40,12 +39,14 @@ def check_tokens():
     )
     missing_tokens = []
     for token in environmet_variables:
-        if token in globals():
-            return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
+        if globals()[token] is not None:
+            continue
         else:
             missing_tokens.append(token)
     if len(missing_tokens) != 0:
-        raise ValueError(f'Отсутсвтует токен(-ы) {missing_tokens}')
+        return missing_tokens
+    else:
+        return False
 
 
 def send_message(bot, message):
@@ -69,10 +70,8 @@ def get_api_answer(timestamp):
                 f'Код ответа: {response.status_code}'
                 f'Причина: {response.reason}')
         return response.json()
-    except requests.exceptions.RequestException:
-        raise WrongResponseCode(
-            f'Cбой при запросе. Запрос: {ENDPOINT}, {HEADERS}, {payload}.'
-        )
+    except requests.exceptions.RequestException as error:
+        raise WrongResponseCode(f'Cбой при запросе. {error}')
 
 
 def check_response(response):
@@ -86,7 +85,7 @@ def check_response(response):
     if not isinstance(homeworks, list):
         raise TypeError('homeworks не является списком')
     if not isinstance(current_date, int):
-        logging.error('current_date не является целым числом')
+        raise NotIsInstance('current_date не является целым числом')
     return homeworks
 
 
@@ -105,8 +104,8 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    if not check_tokens():
-        message = check_tokens()
+    if check_tokens():
+        message = f'Отсутствуют токены: {check_tokens()}'
         logging.critical(message)
         sys.exit(message)
 
@@ -121,6 +120,9 @@ def main():
                 timestamp = homeworks.get('current_date')
                 message = parse_status(homeworks_list[0])
                 send_message(bot, message)
+
+        except NotIsInstance:
+            logging.error('current_date не является целым числом')
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
