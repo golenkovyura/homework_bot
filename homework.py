@@ -5,6 +5,7 @@ import logging
 
 import requests
 import telegram
+
 from http import HTTPStatus
 from dotenv import load_dotenv
 
@@ -37,11 +38,14 @@ def check_tokens():
         'TELEGRAM_TOKEN',
         'TELEGRAM_CHAT_ID'
     )
+    missing_tokens = []
     for token in environmet_variables:
         if token in globals():
             return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
         else:
-            return f'Отсутсвтует токен {token}'
+            missing_tokens.append(token)
+    if len(missing_tokens) != 0:
+        raise ValueError(f'Отсутсвтует токен(-ы) {missing_tokens}')
 
 
 def send_message(bot, message):
@@ -66,7 +70,9 @@ def get_api_answer(timestamp):
                 f'Причина: {response.reason}')
         return response.json()
     except requests.exceptions.RequestException:
-        raise WrongResponseCode('Сбой при запросе к эндпоинту API')
+        raise WrongResponseCode(
+            f'Cбой при запросе. Запрос: {ENDPOINT}, {HEADERS}, {payload}.'
+        )
 
 
 def check_response(response):
@@ -80,7 +86,7 @@ def check_response(response):
     if not isinstance(homeworks, list):
         raise TypeError('homeworks не является списком')
     if not isinstance(current_date, int):
-        raise TypeError('current_date не является целым числом')
+        logging.error('current_date не является целым числом')
     return homeworks
 
 
@@ -113,9 +119,8 @@ def main():
             homeworks_list = homeworks.get('homeworks')
             if check_response(homeworks):
                 timestamp = homeworks.get('current_date')
-                for homework in homeworks_list:
-                    message = parse_status(homework)
-                    send_message(bot, message)
+                message = parse_status(homeworks_list[0])
+                send_message(bot, message)
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
