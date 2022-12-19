@@ -8,7 +8,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exception import WrongResponseCode, NotIsInstance
+from exception import WrongResponseCode, NotIsInstanceCurrentDate
 
 
 load_dotenv()
@@ -39,14 +39,11 @@ def check_tokens():
     )
     missing_tokens = []
     for token in environmet_variables:
-        if globals()[token] is not None:
-            continue
-        else:
+        if globals()[token] is None:
             missing_tokens.append(token)
     if len(missing_tokens) != 0:
         return missing_tokens
-    else:
-        return False
+    return False
 
 
 def send_message(bot, message):
@@ -85,7 +82,7 @@ def check_response(response):
     if not isinstance(homeworks, list):
         raise TypeError('homeworks не является списком')
     if not isinstance(current_date, int):
-        raise NotIsInstance('current_date не является целым числом')
+        raise NotIsInstanceCurrentDate('current_date не является целым числом')
     return homeworks
 
 
@@ -120,10 +117,8 @@ def main():
                 timestamp = homeworks.get('current_date')
                 message = parse_status(homeworks_list[0])
                 send_message(bot, message)
-
-        except NotIsInstance:
+        except NotIsInstanceCurrentDate:
             logging.error('current_date не является целым числом')
-
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(message)

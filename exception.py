@@ -2,5 +2,5 @@ class WrongResponseCode(Exception):
     pass
 
 
-class NotIsInstance(Exception):
+class NotIsInstanceCurrentDate(Exception):
     pass
